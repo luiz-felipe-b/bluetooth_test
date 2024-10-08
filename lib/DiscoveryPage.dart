@@ -83,8 +83,8 @@ class _DiscoveryPage extends State<DiscoveryPage> {
           isDiscovering
               ? FittedBox(
                   child: Container(
-                    margin: new EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(
+                    margin: const EdgeInsets.all(16.0),
+                    child: const CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   ),
@@ -142,8 +142,8 @@ class _DiscoveryPage extends State<DiscoveryPage> {
                       title: const Text('Error occured while bonding'),
                       content: Text("${ex.toString()}"),
                       actions: <Widget>[
-                        new TextButton(
-                          child: new Text("Close"),
+                        TextButton(
+                          child: const Text("Close"),
                           onPressed: () {
                             Navigator.of(context).pop();
                           },
