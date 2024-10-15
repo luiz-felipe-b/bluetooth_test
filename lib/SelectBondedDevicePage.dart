@@ -2,37 +2,24 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:teste_bluetooth_pi/models/devicewithavailability.dart';
+import 'package:teste_bluetooth_pi/models/enum/deviceavailability.dart';
 
 import './BluetoothDeviceListEntry.dart';
 
 class SelectBondedDevicePage extends StatefulWidget {
-  /// If true, on page start there is performed discovery upon the bonded devices.
-  /// Then, if they are not avaliable, they would be disabled from the selection.
+
   final bool checkAvailability;
 
-  const SelectBondedDevicePage({this.checkAvailability = true});
+  const SelectBondedDevicePage({super.key, this.checkAvailability = true});
 
   @override
   _SelectBondedDevicePage createState() => new _SelectBondedDevicePage();
 }
 
-enum _DeviceAvailability {
-  no,
-  maybe,
-  yes,
-}
-
-class _DeviceWithAvailability {
-  BluetoothDevice device;
-  _DeviceAvailability availability;
-  int? rssi;
-
-  _DeviceWithAvailability(this.device, this.availability, [this.rssi]);
-}
-
 class _SelectBondedDevicePage extends State<SelectBondedDevicePage> {
-  List<_DeviceWithAvailability> devices =
-      List<_DeviceWithAvailability>.empty(growable: true);
+  List<DeviceWithAvailability> devices =
+      List<DeviceWithAvailability>.empty(growable: true);
 
   // Availability
   StreamSubscription<BluetoothDiscoveryResult>? _discoveryStreamSubscription;
@@ -57,11 +44,11 @@ class _SelectBondedDevicePage extends State<SelectBondedDevicePage> {
       setState(() {
         devices = bondedDevices
             .map(
-              (device) => _DeviceWithAvailability(
+              (device) => DeviceWithAvailability(
                 device,
                 widget.checkAvailability
-                    ? _DeviceAvailability.maybe
-                    : _DeviceAvailability.yes,
+                    ? DeviceAvailability.maybe
+                    : DeviceAvailability.yes,
               ),
             )
             .toList();
@@ -85,7 +72,7 @@ class _SelectBondedDevicePage extends State<SelectBondedDevicePage> {
         while (i.moveNext()) {
           var _device = i.current;
           if (_device.device == r.device) {
-            _device.availability = _DeviceAvailability.yes;
+            _device.availability = DeviceAvailability.yes;
             _device.rssi = r.rssi;
           }
         }
@@ -113,7 +100,7 @@ class _SelectBondedDevicePage extends State<SelectBondedDevicePage> {
         .map((_device) => BluetoothDeviceListEntry(
               device: _device.device,
               rssi: _device.rssi,
-              enabled: _device.availability == _DeviceAvailability.yes,
+              enabled: _device.availability == DeviceAvailability.yes,
               onTap: () {
                 Navigator.of(context).pop(_device.device);
               },
@@ -121,24 +108,26 @@ class _SelectBondedDevicePage extends State<SelectBondedDevicePage> {
         .toList();
     return Scaffold(
       appBar: AppBar(
-        title: Text('Select device'),
+        title: Text(_isDiscovering ? 'Procurando novo aparelho' : 'Escolha um aparelho'),
         actions: <Widget>[
           _isDiscovering
               ? FittedBox(
                   child: Container(
-                    margin: new EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(
+                    margin: const EdgeInsets.all(16.0),
+                    child: const CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        Colors.white,
+                         Colors.white
                       ),
                     ),
                   ),
                 )
               : IconButton(
-                  icon: Icon(Icons.replay),
+                  icon: const Icon(Icons.replay, color: Colors.white),
                   onPressed: _restartDiscovery,
                 )
         ],
+        backgroundColor: const Color.fromRGBO(0, 20, 137, 1),
+        foregroundColor: Colors.white,
       ),
       body: ListView(children: list),
     );

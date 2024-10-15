@@ -2,10 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
-import 'package:scoped_model/scoped_model.dart';
-
-import './BackgroundCollectedPage.dart';
-import './BackgroundCollectingTask.dart';
+import 'package:permission_handler/permission_handler.dart';
 import './ChatPage.dart';
 import './DiscoveryPage.dart';
 import './SelectBondedDevicePage.dart';
@@ -18,17 +15,17 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPage extends State<MainPage> {
+
   BluetoothState _bluetoothState = BluetoothState.UNKNOWN;
 
-
-  Timer? _discoverableTimeoutTimer;
-  BackgroundCollectingTask? _collectingTask;
+  bool bluetoothConnectPermission = false;
+  bool locationPermission = false;
+  bool bluetoothScanPermission = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Get current state
     FlutterBluetoothSerial.instance.state.then((state) {
       setState(() {
         _bluetoothState = state;
@@ -51,17 +48,25 @@ class _MainPage extends State<MainPage> {
       setState(() {
         _bluetoothState = state;
 
-        // Discoverable mode is disabled when Bluetooth gets disabled
-        _discoverableTimeoutTimer = null;
       });
+    });
+
+    Permission.bluetoothConnect.isGranted.then((value) => {
+      bluetoothConnectPermission = value
+    });
+
+    Permission.location.isGranted.then((value) => {
+      locationPermission = value
+    });
+
+    Permission.bluetoothScan.isGranted.then((value) => {
+      bluetoothScanPermission = value
     });
   }
 
   @override
   void dispose() {
     FlutterBluetoothSerial.instance.setPairingRequestHandler(null);
-    _collectingTask?.dispose();
-    _discoverableTimeoutTimer?.cancel();
     super.dispose();
   }
 
@@ -69,49 +74,28 @@ class _MainPage extends State<MainPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Flutter Bluetooth Serial'),
+        title: const Text('Metro Safe'),
+        foregroundColor: Colors.white,
+        backgroundColor: Color.fromRGBO(0, 20, 137, 1),
       ),
       body: ListView(
         children: <Widget>[
-          const Divider(),
-          const ListTile(title: Text('General')),
-          SwitchListTile(
-            title: const Text('Enable Bluetooth'),
-            value: _bluetoothState.isEnabled,
-            onChanged: (bool value) {
-              // Do the request and update with the true value then
-              future() async {
-                // async lambda seems to not working
-                if (value) {
-                  await FlutterBluetoothSerial.instance.requestEnable();
-                } else {
-                  await FlutterBluetoothSerial.instance.requestDisable();
-                }
-              }
-
-              future().then((_) {
-                setState(() {});
-              });
-            },
+          const ListTile(
+              title: Text('Dispositivos por perto e conexão', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),),
+              subtitle: Text(
+                  'Certifique-se que todos os tipos de acessos mencionados abaixo foram liberados'
+              )
           ),
-          ListTile(
-            title: const Text('Bluetooth status'),
-            subtitle: Text(_bluetoothState.toString()),
-            trailing: ElevatedButton(
-              child: const Text('Settings'),
-              onPressed: () {
-                FlutterBluetoothSerial.instance.openSettings();
-              },
-            ),
-          ),
-          const Divider(),
-          const ListTile(title: Text('Devices discovery and connection')),
+          const SizedBox(height: 10,),
           ListTile(
             title: ElevatedButton(
-                child: const Text('Explore discovered devices'),
-                onPressed: () async {
+                style: ElevatedButton.styleFrom(
+                    foregroundColor: const Color.fromRGBO(0, 20, 137, 1)
+                ),
+                onPressed: (_bluetoothState.isEnabled && locationPermission && bluetoothScanPermission && bluetoothConnectPermission)
+                    ? () async {
                   final BluetoothDevice? selectedDevice =
-                      await Navigator.of(context).push(
+                  await Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) {
                         return const DiscoveryPage();
@@ -120,18 +104,24 @@ class _MainPage extends State<MainPage> {
                   );
 
                   if (selectedDevice != null) {
-                    print('Discovery -> selected ${selectedDevice.address}');
+                    print('Descoberta -> selecionado ${selectedDevice.address}');
+                    _startChat(context, selectedDevice);
                   } else {
-                    print('Discovery -> no device selected');
+                    print('Descoberta -> nenhum aparelho conectado');
                   }
-                }),
+                }
+                    : null,
+                child: const Text('Explorar dispositvos por perto')),
           ),
           ListTile(
             title: ElevatedButton(
-              child: const Text('Connect to paired device to chat'),
-              onPressed: () async {
+              style: ElevatedButton.styleFrom(
+                  foregroundColor: const Color.fromRGBO(0, 20, 137, 1)
+              ),
+              onPressed: (_bluetoothState.isEnabled && locationPermission && bluetoothScanPermission && bluetoothConnectPermission)
+                  ? () async {
                 final BluetoothDevice? selectedDevice =
-                    await Navigator.of(context).push(
+                await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) {
                       return const SelectBondedDevicePage(checkAvailability: false);
@@ -145,60 +135,118 @@ class _MainPage extends State<MainPage> {
                 } else {
                   print('Connect -> no device selected');
                 }
-              },
+              }
+                  : null,
+              child: const Text('Conectar-se a aparelho já pareado'),
             ),
           ),
           const Divider(),
-          const ListTile(title: Text('Multiple connections example')),
-          ListTile(
-            title: ElevatedButton(
-              child: ((_collectingTask?.inProgress ?? false)
-                  ? const Text('Disconnect and stop background collecting')
-                  : const Text('Connect to start background collecting')),
-              onPressed: () async {
-                if (_collectingTask?.inProgress ?? false) {
-                  await _collectingTask!.cancel();
-                  setState(() {
-                    /* Update for `_collectingTask.inProgress` */
-                  });
-                } else {
-                  final BluetoothDevice? selectedDevice =
-                      await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) {
-                        return const SelectBondedDevicePage(
-                            checkAvailability: false);
-                      },
-                    ),
-                  );
-
-                  if (selectedDevice != null) {
-                    await _startBackgroundTask(context, selectedDevice);
+          const ListTile(title: Text('Bluetooth', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),)),
+          SwitchListTile(
+            title: const Text('Uso do Bluetooth'),
+            value: _bluetoothState.isEnabled && bluetoothConnectPermission,
+            activeColor: Colors.white,
+            activeTrackColor: const Color.fromRGBO(51, 177, 20, 1.0),
+            onChanged: (bool value) {
+              future() async {
+                if (!bluetoothConnectPermission) {
+                  await Permission.bluetoothConnect.request();
+                  await FlutterBluetoothSerial.instance.requestEnable();
+                  if(await Permission.bluetoothConnect.isGranted) {
                     setState(() {
-                      /* Update for `_collectingTask.inProgress` */
+                      bluetoothConnectPermission = true;
                     });
+                    return;
                   }
+                  setState(() {
+                    bluetoothConnectPermission = false;
+                  });
+                  return;
+                } else {
+                  await FlutterBluetoothSerial.instance.requestDisable();
+                  setState(() {
+                    bluetoothConnectPermission = false;
+                  });
                 }
-              },
-            ),
+
+              }
+              future();
+            },
           ),
           ListTile(
-            title: ElevatedButton(
-              onPressed: (_collectingTask != null)
-                  ? () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) {
-                            return ScopedModel<BackgroundCollectingTask>(
-                              model: _collectingTask!,
-                              child: BackgroundCollectedPage(),
-                            );
-                          },
-                        ),
-                      );
-                    }
-                  : null,
-              child: const Text('View background collected data'),
+            title: const Text('Status do Bluetooth'),
+            subtitle: Text(bluetoothConnectPermission ? 'Conectado' : 'Disconectado'),
+            trailing: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  foregroundColor: const Color.fromRGBO(0, 20, 137, 1)
+              ),
+              onPressed: () {
+                FlutterBluetoothSerial.instance.openSettings();
+              },
+              child: const Text('Configurações'),
+            ),
+          ),
+          const Divider(),
+          const ListTile(title: Text('Acessos ao Dispositivo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500))),
+          SwitchListTile(
+              title: const Text('Localização'),
+              value: locationPermission,
+              activeColor: Colors.white,
+              activeTrackColor: const Color.fromRGBO(51, 177, 20, 1.0),
+              onChanged: (bool value) async {
+                if(!locationPermission) {
+                  await Permission.location.request();
+                  if(await Permission.location.isGranted) {
+                    setState(() {
+                      locationPermission = true;
+                    });
+                    return;
+                  }
+                  setState(() {
+                    locationPermission = false;
+                  });
+                  return;
+                }
+                setState(() {
+                  locationPermission = value;
+                });
+              }
+          ),
+          SwitchListTile(
+              title: const Text('Detectar dispositivos por perto'),
+              value: bluetoothScanPermission,
+              activeColor: Colors.white,
+              activeTrackColor: const Color.fromRGBO(51, 177, 20, 1.0),
+              onChanged: (bool value) async {
+                if(!bluetoothScanPermission) {
+                  await Permission.bluetoothScan.request();
+                  if(await Permission.bluetoothScan.isGranted) {
+                    setState(() {
+                      bluetoothScanPermission = true;
+                    });
+                    return;
+                  }
+                  setState(() {
+                    bluetoothScanPermission = false;
+                  });
+                  return;
+                } else {
+                  setState(() {
+                    bluetoothScanPermission = false;
+                  });
+                }
+              }
+          ),
+          ListTile(
+            title: const Text('Autorizações do Aplicativo'),
+            trailing: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  foregroundColor: const Color.fromRGBO(0, 20, 137, 1)
+              ),
+              onPressed: () async {
+                await openAppSettings();
+              },
+              child: const Text('Permissões'),
             ),
           ),
         ],
@@ -214,34 +262,5 @@ class _MainPage extends State<MainPage> {
         },
       ),
     );
-  }
-
-  Future<void> _startBackgroundTask(
-    BuildContext context,
-    BluetoothDevice server,
-  ) async {
-    try {
-      _collectingTask = await BackgroundCollectingTask.connect(server);
-      await _collectingTask!.start();
-    } catch (ex) {
-      _collectingTask?.cancel();
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Error occured while connecting'),
-            content: Text(ex.toString()),
-            actions: <Widget>[
-              TextButton(
-                child: const Text("Close"),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          );
-        },
-      );
-    }
   }
 }

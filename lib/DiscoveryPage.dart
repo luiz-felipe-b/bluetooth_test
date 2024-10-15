@@ -9,7 +9,7 @@ class DiscoveryPage extends StatefulWidget {
   /// If true, discovery starts on page start, otherwise user must press action button.
   final bool start;
 
-  const DiscoveryPage({this.start = true});
+  const DiscoveryPage({super.key, this.start = true});
 
   @override
   _DiscoveryPage createState() => new _DiscoveryPage();
@@ -62,8 +62,6 @@ class _DiscoveryPage extends State<DiscoveryPage> {
     });
   }
 
-  // @TODO . One day there should be `_pairDevice` on long tap on something... ;)
-
   @override
   void dispose() {
     // Avoid memory leak (`setState` after dispose) and cancel discovery
@@ -77,8 +75,8 @@ class _DiscoveryPage extends State<DiscoveryPage> {
     return Scaffold(
       appBar: AppBar(
         title: isDiscovering
-            ? Text('Discovering devices')
-            : Text('Discovered devices'),
+            ? const Text('Encontrando Aparelhos', style: TextStyle(fontSize: 20),)
+            : const Text('Aparelhos encontrados', style: TextStyle(fontSize: 20),),
         actions: <Widget>[
           isDiscovering
               ? FittedBox(
@@ -90,10 +88,12 @@ class _DiscoveryPage extends State<DiscoveryPage> {
                   ),
                 )
               : IconButton(
-                  icon: Icon(Icons.replay),
+                  icon: const Icon(Icons.replay, color: Colors.white,),
                   onPressed: _restartDiscovery,
                 )
         ],
+        backgroundColor: const Color.fromRGBO(0, 20, 137, 1),
+        foregroundColor: Colors.white,
       ),
       body: ListView.builder(
         itemCount: results.length,
