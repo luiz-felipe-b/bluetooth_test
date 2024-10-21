@@ -76,7 +76,7 @@ class _MainPage extends State<MainPage> {
       appBar: AppBar(
         title: const Text('Metro Safe'),
         foregroundColor: Colors.white,
-        backgroundColor: Color.fromRGBO(0, 20, 137, 1),
+        backgroundColor: const Color.fromRGBO(0, 20, 137, 1),
       ),
       body: ListView(
         children: <Widget>[
